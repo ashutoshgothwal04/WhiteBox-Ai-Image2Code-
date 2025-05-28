@@ -4,7 +4,7 @@ import Constants from "@/data/Constants";
 import axios from "axios";
 import { Loader2 } from "lucide-react";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
 import SelectionDetail from "../_components/SelectionDetail";
 import CodeEditor from "../_components/CodeEditor";
 import { toast } from "sonner";
@@ -56,21 +56,68 @@ function ViewCode() {
     }
   };
 
+  // const GenerateCode = async (record: RECORD) => {
+  //   try {
+
+  //     setLoading(true);
+
+  //     console.log("Sending to /api/ai-model:", {
+  //       // description: `${record.description}:${Constants.PROMPT}`,
+  //       description: `${Constants.PROMPT}\n\n${record.description}`,
+  //       model: record.model,
+  //       imageUrl: record.imageUrl,
+  //     });
+
+  //     console.log("📢 PROMPT = ", Constants.PROMPT);
+
+  //     const res = await fetch("/api/ai-model", {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify({
+  //         description: `${record.description}:${Constants.PROMPT}`,
+  //         model: record.model,
+  //         imageUrl: record.imageUrl,
+  //       }),
+  //     });
+
+  //     if (!res.ok || !res.body) {
+  //       const error = await res.json().catch(() => ({}));
+  //       throw new Error(error?.error?.message || "Failed to generate code.");
+  //     }
+
+  //     const reader = res.body.getReader();
+  //     const decoder = new TextDecoder();
+  //     let fullText = "";
+
+  //     while (true) {
+  //       const { done, value } = await reader.read();
+  //       if (done) break;
+
+  //       const text = decoder
+  //       .decode(value)
+  //       .replace(/```(jsx|javascript)?/g, "") // remove markdown code fences
+  //       .replace(/^Here(?:'|’)?s.*?\n+/i, "") // remove intro lines like "Here's a..."
+  //       .replace(/^[\s\S]*?(?=^import\s)/m, "") // remove everything before the first import
+  //       .replace(/^(.*export\s+default\s+App;)[\s\S]*$/m, "$1"); // remove everything after 'export default App;'
+  //       // .replace(/(export\s+default\s+\w+;)[\s\S]*/g, "$1") // remove everything after 'export default App;'
+
+  //     fullText += text;
+  //     setCodeResp((prev) => prev + text);
+  //     }
+
+  //     setIsReady(true);
+  //   } catch (error: any) {
+  //     console.error("Streaming error:", error);
+  //     toast.error(error.message || "Error generating code.");
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
   const GenerateCode = async (record: RECORD) => {
     try {
-
       setLoading(true);
- 
-      console.log("Sending to /api/ai-model:", {
-        // description: `${record.description}:${Constants.PROMPT}`,
-        description: `${Constants.PROMPT}\n\n${record.description}`,
-        model: record.model,
-        imageUrl: record.imageUrl,
-      });
 
-      console.log("📢 PROMPT = ", Constants.PROMPT);
-
-      
       const res = await fetch("/api/ai-model", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -93,20 +140,17 @@ function ViewCode() {
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-
-        const text = decoder
-        .decode(value)
-        .replace(/```(jsx|javascript)?/g, "") // remove markdown code fences
-        .replace(/^Here(?:'|’)?s.*?\n+/i, "") // remove intro lines like "Here's a..."
-        .replace(/^(.*export\s+default\s+App;)[\s\S]*$/m, "$1"); // remove everything after 'export default App;'
-        // .replace(/(export\s+default\s+\w+;)[\s\S]*/g, "$1") // remove everything after 'export default App;'
-        // .replace(/export\s+default\s+\w+;\s*/g, ""); // remove 'export default App;'
-      
-
-      fullText += text;
-      setCodeResp((prev) => prev + text);
+        fullText += decoder.decode(value);
       }
 
+      // ✅ Clean it AFTER full stream is read
+      const cleanedText = fullText
+        .replace(/```(jsx|javascript)?/g, "") // remove ```jsx fences
+        .replace(/^Here(?:'|’)?s.*?\n+/i, "") // remove "Here's..." lines
+        .replace(/^[\s\S]*?(?=^import\s)/m, "") // remove everything before the first 'import'
+        .replace(/^(.*export\s+default\s+\w+;)[\s\S]*$/m, "$1"); // keep only until 'export default Component;'
+
+      setCodeResp(cleanedText.trim());
       setIsReady(true);
     } catch (error: any) {
       console.error("Streaming error:", error);
